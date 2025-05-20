@@ -1,2 +1,5 @@
-package com.reon.clearcutai_backend.model;public class Role {
+package com.reon.clearcutai_backend.model;
+
+public enum Role {
+    USER, ADMIN
 }
