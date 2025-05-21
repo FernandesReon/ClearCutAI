@@ -15,7 +15,7 @@ public class UserRegistrationDTO {
     private String name;
 
     @NotBlank(message = "Email is required.")
-    @Email(message = "Invalid email format.\nEg: name@example.com")
+    @Email(message = "Invalid email format. eg: name@example.com")
     private String email;
 
     @NotBlank(message = "Password is required.")
