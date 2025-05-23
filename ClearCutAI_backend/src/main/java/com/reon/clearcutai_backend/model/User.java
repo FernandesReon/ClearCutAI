@@ -58,6 +58,9 @@ public class User implements UserDetails {
     private String resetOtp;
     private long resetOtpExpireAt;
 
+    private String verificationOtp;
+    private long verificationOtpExpireAt;
+
     @PrePersist
     public void prePersist(){
         LocalDateTime now = LocalDateTime.now();

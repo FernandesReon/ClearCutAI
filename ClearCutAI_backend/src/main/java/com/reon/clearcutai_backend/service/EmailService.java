@@ -32,4 +32,14 @@ public class EmailService {
         message.setText("Your OTP for resetting your password is " + otp + ". Use this OTP to proceed with resetting your password.");
         mailSender.send(message);
     }
+
+    public void sendVerificationOtp(String toEmail, String name, String otp){
+        SimpleMailMessage message = new SimpleMailMessage();
+        message.setFrom(fromEmail);
+        message.setTo(toEmail);
+        message.setSubject("Account verification OTP");
+        message.setText("Hello " + name + "\n\nHere is your OTP: " + otp + " for your account verification.\n\n" +
+                "OTP is only valid for 5 minutes.\nPlease don't share the OTP with anyone.");
+        mailSender.send(message);
+    }
 }
