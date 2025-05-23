@@ -55,6 +55,9 @@ public class User implements UserDetails {
     @Column(nullable = false)
     private LocalDateTime updatedOn;
 
+    private String resetOtp;
+    private long resetOtpExpireAt;
+
     @PrePersist
     public void prePersist(){
         LocalDateTime now = LocalDateTime.now();

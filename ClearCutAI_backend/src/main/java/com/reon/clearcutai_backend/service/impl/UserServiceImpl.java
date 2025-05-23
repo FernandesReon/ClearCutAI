@@ -4,12 +4,15 @@ import com.reon.clearcutai_backend.dto.UserLoginDTO;
 import com.reon.clearcutai_backend.dto.UserRegistrationDTO;
 import com.reon.clearcutai_backend.dto.UserResponseDTO;
 import com.reon.clearcutai_backend.exception.EmailAlreadyExistsException;
+import com.reon.clearcutai_backend.exception.InvalidOTPException;
+import com.reon.clearcutai_backend.exception.OTPExpiredException;
 import com.reon.clearcutai_backend.exception.UserNotFoundException;
 import com.reon.clearcutai_backend.jwt.JwtAuthenticationResponse;
 import com.reon.clearcutai_backend.jwt.JwtUtils;
 import com.reon.clearcutai_backend.mapper.UserMapper;
 import com.reon.clearcutai_backend.model.User;
 import com.reon.clearcutai_backend.repository.UserRepository;
+import com.reon.clearcutai_backend.service.EmailService;
 import com.reon.clearcutai_backend.service.UserService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,6 +26,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 
 @Service
 public class UserServiceImpl implements UserService {
@@ -31,12 +35,14 @@ public class UserServiceImpl implements UserService {
     private final AuthenticationManager authenticationManager;
     private final JwtUtils jwtUtils;
     private final PasswordEncoder passwordEncoder;
+    private final EmailService emailService;
 
-    public UserServiceImpl(UserRepository userRepository, AuthenticationManager authenticationManager, JwtUtils jwtUtils, PasswordEncoder passwordEncoder) {
+    public UserServiceImpl(UserRepository userRepository, AuthenticationManager authenticationManager, JwtUtils jwtUtils, PasswordEncoder passwordEncoder, EmailService emailService) {
         this.userRepository = userRepository;
         this.authenticationManager = authenticationManager;
         this.jwtUtils = jwtUtils;
         this.passwordEncoder = passwordEncoder;
+        this.emailService = emailService;
     }
 
     @Override
@@ -49,10 +55,13 @@ public class UserServiceImpl implements UserService {
         String userId = UUID.randomUUID().toString();
         newUser.setId(userId);
         newUser.setPassword(passwordEncoder.encode(register.getPassword()));
-        //TODO: once spring security is configured encrypt the password before saving in database
-
         User saveUser = userRepository.save(newUser);
         logger.info("User saved successfully.");
+
+        // Once's the user is saved in database send him welcome mail
+        logger.info("Service :: Sending Welcome email to: " + register.getEmail());
+        emailService.sendWelcomeEmail(register.getEmail(), register.getName());
+        logger.info("Service :: Email sent successfully.");
         return UserMapper.responseToUser(saveUser);
     }
 
@@ -89,4 +98,50 @@ public class UserServiceImpl implements UserService {
             throw new RuntimeException(e);
         }
     }
+
+    private String generateOtp() {
+        return String.valueOf(ThreadLocalRandom.current().nextInt(100000, 1000000));
+    }
+
+    @Override
+    public void sendResetOtp(String email) {
+        User existingUser = userRepository.findByEmail(email)
+                .orElseThrow(() -> new UserNotFoundException("User not found for email: " + email));
+
+        String otp = generateOtp();
+        long expiryTime = System.currentTimeMillis() + (15 * 60 * 1000);
+
+        existingUser.setResetOtp(otp);
+        existingUser.setResetOtpExpireAt(expiryTime);
+
+        userRepository.save(existingUser);
+
+        try {
+            emailService.sendResetOtpEmail(existingUser.getEmail(), otp);
+        }
+        catch (Exception e){
+            throw new RuntimeException("Unable to send email");
+        }
+    }
+
+    @Override
+    public void resetPassword(String email, String otp, String newPassword) {
+        User existingUser = userRepository.findByEmail(email)
+                .orElseThrow(() -> new UserNotFoundException("User not found for email: " + email));
+
+        if (existingUser.getResetOtp() == null || !existingUser.getResetOtp().equals(otp)){
+            throw new InvalidOTPException("Invalid OTP");
+        }
+
+        if (existingUser.getResetOtpExpireAt() < System.currentTimeMillis()){
+            throw new OTPExpiredException("OTP has expired");
+        }
+
+        existingUser.setPassword(passwordEncoder.encode(newPassword));
+        existingUser.setResetOtp(null);
+        existingUser.setResetOtpExpireAt(0L);
+
+        userRepository.save(existingUser);
+    }
+
 }

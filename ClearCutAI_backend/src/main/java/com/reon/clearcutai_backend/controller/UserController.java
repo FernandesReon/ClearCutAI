@@ -1,5 +1,6 @@
 package com.reon.clearcutai_backend.controller;
 
+import com.reon.clearcutai_backend.dto.ResetPasswordDTO;
 import com.reon.clearcutai_backend.dto.UserLoginDTO;
 import com.reon.clearcutai_backend.dto.UserRegistrationDTO;
 import com.reon.clearcutai_backend.dto.UserResponseDTO;
@@ -12,10 +13,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 
 @RestController
@@ -49,6 +47,28 @@ public class UserController {
         } catch (DisabledException e) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e);
         } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @PostMapping("/send-reset-otp")
+    public void sendResetOtp(@RequestParam String email){
+        try {
+            logger.info("Controller :: Sending OTP for email: " + email);
+            userService.sendResetOtp(email);
+            logger.info("Controller :: Reset OTP send successfully.");
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+    @PostMapping("/reset-password")
+    public void resetPassword(@Valid @RequestBody ResetPasswordDTO resetPassword){
+        try {
+            logger.info("Controller :: Incoming request for changing password from email: " + resetPassword.getEmail());
+            userService.resetPassword(resetPassword.getEmail(), resetPassword.getOtp(), resetPassword.getNewPassword());
+            logger.info("Controller :: Password reset successful.");
+        } catch (Exception e) {
+            logger.error("Controller :: Unexpected error occurred: " + e.getMessage());
             throw new RuntimeException(e);
         }
     }
